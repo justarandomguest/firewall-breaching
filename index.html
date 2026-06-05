@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Firewall Breach Game</title>
+<style>
+  body {
+    margin: 0;
+    background: black;
+    color: lime;
+    font-family: monospace;
+    text-align: center;
+  }
+
+  canvas {
+    display: block;
+    margin: 0 auto;
+    background: #111;
+    border: 2px solid lime;
+  }
+
+  .screen {
+    position: absolute;
+    top: 30%;
+    width: 100%;
+  }
+
+  button {
+    padding: 10px 20px;
+    font-size: 16px;
+    background: black;
+    color: lime;
+    border: 2px solid lime;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<!-- Start Screen -->
+<div id="startScreen" class="screen">
+  <h1>💻 Firewall Breach</h1>
+  <p>Avoid detection. Slip through the firewall.</p>
+  <button onclick="startGame()">Start Game</button>
+</div>
+
+<!-- Game Over Screen -->
+<div id="gameOverScreen" class="screen" style="display:none;">
+  <h1>🚫 Access Denied</h1>
+  <p id="finalScore"></p>
+  <button onclick="startGame()">Restart</button>
+</div>
+
+<!-- Game Area -->
+<canvas id="gameCanvas" width="400" height="500"></canvas>
+
+<script>
+// Get canvas
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// Player setup
+let player = {
+  x: 180,
+  y: 450,
+  size: 20,
+  speed: 5
+};
+
+// Obstacles (firewall blocks)
+let obstacles = [];
+let score = 0;
+let gameRunning = false;
+
+// Controls
+let keys = {};
+
+// Listen for key presses
+document.addEventListener("keydown", (e) => keys[e.key] = true);
+document.addEventListener("keyup", (e) => keys[e.key] = false);
+
+// Start game
+function startGame() {
+  document.getElementById("startScreen").style.display = "none";
+  document.getElementById("gameOverScreen").style.display = "none";
+
+  player.x = 180;
+  obstacles = [];
+  score = 0;
+  gameRunning = true;
+
+  gameLoop();
+}
+
+// Create obstacles
+function spawnObstacle() {
+  obstacles.push({
+    x: Math.random() * (canvas.width - 20),
+    y: -20,
+    size: 20,
+    speed: 2 + Math.random() * 2
+  });
+}
+
+// Update game
+function update() {
+  // Move player
+  if (keys["ArrowLeft"]) player.x -= player.speed;
+  if (keys["ArrowRight"]) player.x += player.speed;
+
+  // Keep player in bounds
+  player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+
+  // Move obstacles
+  for (let o of obstacles) {
+    o.y += o.speed;
+
+    // Collision check
+    if (
+      player.x < o.x + o.size &&
+      player.x + player.size > o.x &&
+      player.y < o.y + o.size &&
+      player.y + player.size > o.y
+    ) {
+      endGame();
+    }
+  }
+
+  // Remove off-screen obstacles
+  obstacles = obstacles.filter(o => o.y < canvas.height);
+
+  // Random spawn
+  if (Math.random() < 0.02) spawnObstacle();
+
+  // Increase score
+  score++;
+}
+
+// Draw everything
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Player (green square)
+  ctx.fillStyle = "lime";
+  ctx.fillRect(player.x, player.y, player.size, player.size);
+
+  // Obstacles (red blocks)
+  ctx.fillStyle = "red";
+  for (let o of obstacles) {
+    ctx.fillRect(o.x, o.y, o.size, o.size);
+  }
+
+  // Score
+  ctx.fillStyle = "lime";
+  ctx.fillText("Score: " + score, 10, 20);
+}
+
+// Game loop
+function gameLoop() {
+  if (!gameRunning) return;
+
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+// End game
+function endGame() {
+  gameRunning = false;
+  document.getElementById("gameOverScreen").style.display = "block";
+  document.getElementById("finalScore").innerText = "Score: " + score;
+}
+
+</script>
+
+</body>
+</html>
