@@ -25,9 +25,8 @@ button { padding:10px 20px; background:black; color:lime; border:2px solid lime;
 </div>
 
 <div id="cutsceneScreen" class="screen" style="display:none;">
-<h1>📡 Incoming Transmission...</h1>
-<p id="cutsceneText">...</p>
-<button onclick="startGame()">Play Again</button>
+<h1 id="cutsceneTitle">...</h1>
+<p id="cutsceneText"></p>
 </div>
 
 <canvas id="gameCanvas" width="600" height="500"></canvas>
@@ -36,82 +35,73 @@ button { padding:10px 20px; background:black; color:lime; border:2px solid lime;
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-let stage, score, alertLevel, gameRunning;
+let stage, score, gameRunning;
+let phase = 1; // NEW: second phase later
 let player = { x: 300, y: 250, size: 10, speed: 4 };
 let keys = {};
 
 let wires = [], codeBlocks = [], scanners = [], rain = [];
 let password = "", input = "";
 
-// Controls (WASD)
+// Controls
 document.addEventListener("keydown", e => {
   keys[e.key.toLowerCase()] = true;
 
-
-  // Password typing (short + instant progression)
   if (stage === 3 && gameRunning) {
     if (e.key.length === 1) input += e.key;
     if (e.key === "Backspace") input = input.slice(0, -1);
-
-
-    if (input === password) {
-      score += 50;
-      setTimeout(nextStage, 300); // quick transition
-    }
+    if (input === password) setTimeout(nextStage, 200);
   }
 });
-
-
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 document.addEventListener("click", handleClick);
 
 function startGame() {
-  stage = 1; score = 0; alertLevel = 0;
+  stage = 1; score = 0; phase = 1;
   player.x = 300; player.y = 250;
-  document.getElementById("startScreen").style.display = "none";
-  document.getElementById("gameOverScreen").style.display = "none";
-  document.getElementById("cutsceneScreen").style.display = "none";
+  hideAllScreens();
   loadStage();
   gameRunning = true;
   gameLoop();
 }
 
+function hideAllScreens() {
+  document.getElementById("startScreen").style.display = "none";
+  document.getElementById("gameOverScreen").style.display = "none";
+  document.getElementById("cutsceneScreen").style.display = "none";
+}
+
+
 function loadStage() {
   wires = []; codeBlocks = []; scanners = []; input = "";
 
-  rain = Array(100).fill(0).map(()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height}));
+  rain = Array(80).fill(0).map(()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height}));
+  // PHASE 1
+  if (phase === 1) {
+    if (stage === 1) { for(let i=0;i<5;i++) wires.push({x:80+i*90, cut:false}); createScanners(1); }
+    else if (stage === 2) { for(let i=0;i<6;i++) codeBlocks.push({x:Math.random()*550,y:Math.random()*450,size:30}); createScanners(2); }
+    else if (stage === 3) { password = "h"+Math.floor(Math.random()*10); createScanners(2); }
+    else if (stage === 4) { for(let i=0;i<4;i++) codeBlocks.push({x:100+i*100,y:Math.random()*400,size:40}); createScanners(3); }
+    else playEndAnimation();
+  }
 
-  if (stage === 1) {
-    for (let i=0;i<5;i++) wires.push({ x:80+i*90, cut:false });
-    createScanners(1);
-  }
-  else if (stage === 2) {
-    for (let i=0;i<6;i++) codeBlocks.push({ x:Math.random()*550, y:Math.random()*450, size:30 });
-    createScanners(2);
-  }
-  else if (stage === 3) {
-    password = "h" + Math.floor(Math.random()*10); // SHORT password
-    createScanners(2);
-  }
-  else if (stage === 4) {
-    for (let i=0;i<4;i++) codeBlocks.push({ x:100+i*100, y:Math.random()*400, size:40 });
-    createScanners(3);
-  }
-  else {
-    playCutscene();
-  }
-}
-
-function createScanners(count) {
-  for (let i=0;i<count;i++) {
-    scanners.push({ x:Math.random()*canvas.width, y:0, speed:2+Math.random()*2 });
+  // PHASE 2 (HARDER)
+  if (phase === 2) {
+    if (stage === 1) { for(let i=0;i<7;i++) wires.push({x:50+i*70, cut:false}); createScanners(3); }
+    else if (stage === 2) { for(let i=0;i<10;i++) codeBlocks.push({x:Math.random()*550,y:Math.random()*450,size:25}); createScanners(4); }
+    else if (stage === 3) { password = "x"+Math.floor(Math.random()*99); createScanners(4); }
+    else if (stage === 4) { for(let i=0;i<8;i++) codeBlocks.push({x:Math.random()*550,y:Math.random()*450,size:35}); createScanners(5); }
+    else if (stage === 5) { for(let i=0;i<12;i++) codeBlocks.push({x:Math.random()*550,y:Math.random()*450,size:20}); createScanners(6); }
+    else endGame(true);
   }
 }
 
-function nextStage() {
-  stage++;
-  loadStage();
+function createScanners(n) {
+  for(let i=0;i<n;i++) scanners.push({x:Math.random()*canvas.width,y:0,speed:2+Math.random()*3});
 }
+
+function nextStage() { stage++; loadStage(); }
+
 
 function update() {
   if (keys["a"]) player.x -= player.speed;
@@ -122,144 +112,110 @@ function update() {
   player.x = Math.max(0, Math.min(canvas.width, player.x));
   player.y = Math.max(0, Math.min(canvas.height, player.y));
 
-  // SCANNER COLLISION = INSTANT RESTART
-  scanners.forEach(s => {
+  scanners.forEach(s=>{
     s.y += s.speed;
-
-
-    if (
-      player.x < s.x + 20 &&
-      player.x + player.size > s.x &&
-      player.y < s.y + 20 &&
-      player.y + player.size > s.y
-    ) {
-      endGame(false); // immediate fail
+    if (player.x < s.x+20 && player.x+player.size>s.x && player.y<s.y+20 && player.y+player.size>s.y) {
+      endGame(false);
     }
-
-
-    if (s.y > canvas.height) { s.y = 0; s.x = Math.random()*canvas.width; }
+    if (s.y>canvas.height){s.y=0; s.x=Math.random()*canvas.width;}
   });
 
   if (stage===1 && wires.every(w=>w.cut)) nextStage();
-  if (stage===2 && codeBlocks.length===0) nextStage();
-  if (stage===4 && codeBlocks.length===0) nextStage();
-
-  score += 0.1;
+  if ((stage===2 || stage===4 || stage===5) && codeBlocks.length===0) nextStage();
+  score+=0.1;
 }
 
 function handleClick() {
   if (!gameRunning) return;
 
-  if (stage===1) {
-    wires.forEach(w=>{
-      if (!w.cut && Math.abs(player.x - w.x) < 20) { w.cut=true; score+=10; }
-    });
-  }
-
-  if (stage===2 || stage===4) {
-    codeBlocks = codeBlocks.filter(c=>{
-      let hit = player.x>c.x && player.x<c.x+c.size && player.y>c.y && player.y<c.y+c.size;
-      if (hit) score+=20;
-      return !hit;
-    });
-  }
+  wires.forEach(w=>{
+    if (!w.cut && Math.abs(player.x-w.x)<20){w.cut=true; score+=10;}
+  });
+  codeBlocks = codeBlocks.filter(c=>{
+    let hit = player.x>c.x && player.x<c.x+c.size && player.y>c.y && player.y<c.y+c.size;
+    if(hit) score+=20;
+    return !hit;
+  });
 }
 
-function drawRain() {
-  ctx.fillStyle = "rgba(0,0,0,0.2)";
+function drawRain(){
+  ctx.fillStyle="rgba(0,0,0,0.2)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  ctx.fillStyle = "lime";
-  rain.forEach(r=>{
-    ctx.fillText(Math.random()>0.5?"0":"1", r.x, r.y);
-    r.y += 5;
-    if (r.y > canvas.height) r.y = 0;
-  });
+  ctx.fillStyle="lime";
+  rain.forEach(r=>{ctx.fillText(Math.random()>0.5?"1":"0",r.x,r.y); r.y+=4; if(r.y>canvas.height)r.y=0;});
 }
 
-function draw() {
+function draw(){
   drawRain();
 
-  ctx.shadowColor = "lime";
-  ctx.shadowBlur = 10;
-  ctx.fillRect(player.x, player.y, player.size, player.size);
-  ctx.shadowBlur = 0;
-
-  ctx.fillStyle = "rgba(255,0,0,0.5)";
-  scanners.forEach(s => ctx.fillRect(s.x, s.y, 20, 20));
-
-  ctx.fillStyle="yellow";
-
-  if (stage===1) {
-    ctx.fillText("Cut wires",10,20);
-    wires.forEach(w=>{
-      ctx.strokeStyle = w.cut?"gray":"cyan";
-      ctx.beginPath(); ctx.moveTo(w.x,0); ctx.lineTo(w.x,canvas.height); ctx.stroke();
-    });
-  }
-
-  if (stage===2) {
-    ctx.fillText("Delete code blocks",10,20);
-    ctx.fillStyle="red";
-    codeBlocks.forEach(c=>ctx.fillRect(c.x,c.y,c.size,c.size));
-  }
-
-  if (stage===3) {
-    ctx.fillText("Password: type " + password,10,20);
-    ctx.fillText("Input: " + input,10,40);
-  }
-
-  if (stage===4) {
-    ctx.fillText("Route packets",10,20);
-    ctx.fillStyle="orange";
-    codeBlocks.forEach(c=>ctx.fillRect(c.x,c.y,c.size,c.size));
+  ctx.fillStyle="lime";
+  ctx.fillRect(player.x,player.y,player.size,player.size);
+  ctx.fillStyle="red";
+  scanners.forEach(s=>ctx.fillRect(s.x,s.y,20,20));
+  wires.forEach(w=>{
+    ctx.strokeStyle=w.cut?"gray":"cyan";
+    ctx.beginPath(); ctx.moveTo(w.x,0); ctx.lineTo(w.x,canvas.height); ctx.stroke();
+  });
+  codeBlocks.forEach(c=>{ctx.fillStyle="orange"; ctx.fillRect(c.x,c.y,c.size,c.size);});
+  ctx.fillStyle="yellow";
+  if(stage===3) {
+    ctx.fillText("Password: "+password,10,20);
+    ctx.fillText("Input: "+input,10,40);
   }
 
   ctx.fillStyle="lime";
-  ctx.fillText("Score: " + Math.floor(score), 10, 460);
+  ctx.fillText("Score: "+Math.floor(score),10,480);
 }
 
-function gameLoop() {
-  if (!gameRunning) return;
-  update();
-  draw();
+function gameLoop(){
+  if(!gameRunning)return;
+  update(); draw();
   requestAnimationFrame(gameLoop);
 }
 
-function endGame(win) {
+function endGame(win){
   gameRunning=false;
   document.getElementById("gameOverScreen").style.display="block";
-  document.getElementById("endTitle").innerText = win?"✅ Hack Complete":"🚫 Trace Detected";
+  document.getElementById("endTitle").innerText = win?"✅ FINAL HACK COMPLETE":"🚫 TRACE DETECTED";
   document.getElementById("finalScore").innerText = "Score: "+Math.floor(score);
 }
 
-function playCutscene() {
-  gameRunning = false;
-  document.getElementById("cutsceneScreen").style.display = "block";
+// NEW CINEMATIC SEQUENCE
+function playEndAnimation(){
+  gameRunning=false;
+  const screen = document.getElementById("cutsceneScreen");
+  const title = document.getElementById("cutsceneTitle");
+  const text = document.getElementById("cutsceneText");
+  screen.style.display="block";
 
-  const text = [
-    "Connection Secured...",
-    "Unknown authority detected...",
-    "Government Link Established.",
-    "Agent, your skills are exceptional.",
-    "We have a critical mission.",
-    "You must breach a foreign firewall system.",
-    "Time is limited. The stakes are global.",
-    "Prepare for your next operation..."
+
+  const scenes = [
+    {title:"Shutting Down...", text:"You quietly close your laptop."},
+    {title:"...", text:"You walk out of school into the dark."},
+    {title:"", text:""},
+    {title:"BOOTING UP", text:"010101010101010101010101"},
+    {title:"SYSTEM ONLINE", text:"Firewall detected again..."}
   ];
 
-  let i = 0;
-  const display = document.getElementById("cutsceneText");
-
-  function showNext() {
-    if (i < text.length) {
-      display.innerText = text[i];
+  let i=0;
+  function next(){
+    if(i<scenes.length){      title.innerText=scenes[i].title;
+      text.innerText=scenes[i].text;
       i++;
-      setTimeout(showNext, 1500);
+      if(i===3){document.body.style.background="black";} // blackout moment
+      setTimeout(next,2000);
+    } else {
+      // start harder phase
+      phase=2;
+      stage=1;
+      hideAllScreens();
+      gameRunning=true;
+      loadStage();
+      gameLoop();
     }
   }
 
-  showNext();
+  next();
 }
 </script>
 
