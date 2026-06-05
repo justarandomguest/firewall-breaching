@@ -2,175 +2,172 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Firewall Breach Game</title>
+<title>Firewall Breach: Router Hack</title>
 <style>
-  body {
-    margin: 0;
-    background: black;
-    color: lime;
-    font-family: monospace;
-    text-align: center;
-  }
-
-  canvas {
-    display: block;
-    margin: 0 auto;
-    background: #111;
-    border: 2px solid lime;
-  }
-
-  .screen {
-    position: absolute;
-    top: 30%;
-    width: 100%;
-  }
-
-  button {
-    padding: 10px 20px;
-    font-size: 16px;
-    background: black;
-    color: lime;
-    border: 2px solid lime;
-    cursor: pointer;
-  }
+body { margin:0; background:black; color:lime; font-family:monospace; text-align:center; }
+canvas { display:block; margin:20px auto; background:#111; border:2px solid lime; }
+.screen { position:absolute; top:30%; width:100%; }
+button { padding:10px 20px; background:black; color:lime; border:2px solid lime; cursor:pointer; }
 </style>
 </head>
 <body>
 
-<!-- Start Screen -->
 <div id="startScreen" class="screen">
-  <h1>💻 Firewall Breach</h1>
-  <p>Avoid detection. Slip through the firewall.</p>
-  <button onclick="startGame()">Start Game</button>
+<h1>💻 Firewall Breach</h1>
+<p>Cut wires. Delete code. Stay undetected.</p>
+<button onclick="startGame()">Start Hack</button>
 </div>
 
-<!-- Game Over Screen -->
 <div id="gameOverScreen" class="screen" style="display:none;">
-  <h1>🚫 Access Denied</h1>
-  <p id="finalScore"></p>
-  <button onclick="startGame()">Restart</button>
+<h1>🚫 Trace Detected</h1>
+<p id="finalScore"></p>
+<button onclick="startGame()">Retry</button>
 </div>
 
-<!-- Game Area -->
-<canvas id="gameCanvas" width="400" height="500"></canvas>
+<canvas id="gameCanvas" width="500" height="500"></canvas>
 
 <script>
-// Get canvas
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Player setup
-let player = {
-  x: 180,
-  y: 450,
-  size: 20,
-  speed: 5
-};
-
-// Obstacles (firewall blocks)
-let obstacles = [];
+let stage = 1;
 let score = 0;
 let gameRunning = false;
 
-// Controls
+// Player is a cursor
+let player = { x: 250, y: 250, size: 12, speed: 5 };
+
+let wires = [];
+let codeBlocks = [];
 let keys = {};
 
-// Listen for key presses
-document.addEventListener("keydown", (e) => keys[e.key] = true);
-document.addEventListener("keyup", (e) => keys[e.key] = false);
+// Controls
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+document.addEventListener("click", handleClick);
 
-// Start game
 function startGame() {
+  stage = 1;
+  score = 0;
+  player.x = 250;
   document.getElementById("startScreen").style.display = "none";
   document.getElementById("gameOverScreen").style.display = "none";
-
-  player.x = 180;
-  obstacles = [];
-  score = 0;
+  loadStage();
   gameRunning = true;
-
   gameLoop();
 }
 
-// Create obstacles
-function spawnObstacle() {
-  obstacles.push({
-    x: Math.random() * (canvas.width - 20),
-    y: -20,
-    size: 20,
-    speed: 2 + Math.random() * 2
-  });
+function loadStage() {
+  wires = [];
+  codeBlocks = [];
+
+  if (stage === 1) {
+    // wires to cut
+    for (let i = 0; i < 5; i++) {
+      wires.push({ x: 50 + i * 80, y: 200, cut: false });
+    }
+  } else if (stage === 2) {
+    // code blocks to delete
+    for (let i = 0; i < 6; i++) {
+      codeBlocks.push({ x: Math.random() * 450, y: Math.random() * 450, size: 30 });
+    }
+  } else {
+    endGame(true);
+  }
 }
 
-// Update game
 function update() {
-  // Move player
   if (keys["ArrowLeft"]) player.x -= player.speed;
   if (keys["ArrowRight"]) player.x += player.speed;
+  if (keys["ArrowUp"]) player.y -= player.speed;
+  if (keys["ArrowDown"]) player.y += player.speed;
 
-  // Keep player in bounds
-  player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+  player.x = Math.max(0, Math.min(canvas.width, player.x));
+  player.y = Math.max(0, Math.min(canvas.height, player.y));
 
-  // Move obstacles
-  for (let o of obstacles) {
-    o.y += o.speed;
-
-    // Collision check
-    if (
-      player.x < o.x + o.size &&
-      player.x + player.size > o.x &&
-      player.y < o.y + o.size &&
-      player.y + player.size > o.y
-    ) {
-      endGame();
-    }
+  // Stage completion checks
+  if (stage === 1 && wires.every(w => w.cut)) {
+    stage++;
+    loadStage();
   }
 
-  // Remove off-screen obstacles
-  obstacles = obstacles.filter(o => o.y < canvas.height);
-
-  // Random spawn
-  if (Math.random() < 0.02) spawnObstacle();
-
-  // Increase score
-  score++;
+  if (stage === 2 && codeBlocks.length === 0) {
+    stage++;
+    loadStage();
+  }
 }
 
-// Draw everything
+function handleClick() {
+  if (!gameRunning) return;
+
+  if (stage === 1) {
+    wires.forEach(w => {
+      if (!w.cut && Math.abs(player.x - w.x) < 15) {
+        w.cut = true;
+        score += 10;
+      }
+    });
+  }
+
+  if (stage === 2) {
+    codeBlocks = codeBlocks.filter(c => {
+      let hit = player.x > c.x && player.x < c.x + c.size &&
+                player.y > c.y && player.y < c.y + c.size;
+      if (hit) score += 20;
+      return !hit;
+    });
+  }
+}
+
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Player (green square)
+  // Player
   ctx.fillStyle = "lime";
   ctx.fillRect(player.x, player.y, player.size, player.size);
 
-  // Obstacles (red blocks)
-  ctx.fillStyle = "red";
-  for (let o of obstacles) {
-    ctx.fillRect(o.x, o.y, o.size, o.size);
+  // Stage visuals
+  if (stage === 1) {
+    ctx.fillStyle = "yellow";
+    ctx.fillText("Stage 1: Cut the wires (click near them)", 10, 20);
+
+    wires.forEach(w => {
+      ctx.strokeStyle = w.cut ? "gray" : "red";
+      ctx.beginPath();
+      ctx.moveTo(w.x, 0);
+      ctx.lineTo(w.x, canvas.height);
+      ctx.stroke();
+    });
   }
 
-  // Score
+  if (stage === 2) {
+    ctx.fillStyle = "yellow";
+    ctx.fillText("Stage 2: Delete firewall code (click blocks)", 10, 20);
+
+    ctx.fillStyle = "red";
+    codeBlocks.forEach(c => {
+      ctx.fillRect(c.x, c.y, c.size, c.size);
+    });
+  }
+
   ctx.fillStyle = "lime";
-  ctx.fillText("Score: " + score, 10, 20);
+  ctx.fillText("Score: " + score, 10, 40);
 }
 
-// Game loop
 function gameLoop() {
   if (!gameRunning) return;
-
   update();
   draw();
   requestAnimationFrame(gameLoop);
 }
 
-// End game
-function endGame() {
+function endGame(win=false) {
   gameRunning = false;
   document.getElementById("gameOverScreen").style.display = "block";
-  document.getElementById("finalScore").innerText = "Score: " + score;
+  document.getElementById("finalScore").innerText = win ?
+    "Hack Complete! Score: " + score :
+    "Score: " + score;
 }
-
 </script>
 
 </body>
