@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Firewall Breach: Router Hack</title>
+<title>Firewall Breach: Advanced Hack</title>
 <style>
-body { margin:0; background:black; color:lime; font-family:monospace; text-align:center; }
-canvas { display:block; margin:20px auto; background:#111; border:2px solid lime; }
+body { margin:0; background:black; color:lime; font-family:monospace; text-align:center; overflow:hidden; }
+canvas { display:block; margin:0 auto; background:#020; border:2px solid lime; }
 .screen { position:absolute; top:30%; width:100%; }
 button { padding:10px 20px; background:black; color:lime; border:2px solid lime; cursor:pointer; }
 </style>
@@ -14,144 +14,194 @@ button { padding:10px 20px; background:black; color:lime; border:2px solid lime;
 
 <div id="startScreen" class="screen">
 <h1>💻 Firewall Breach</h1>
-<p>Cut wires. Delete code. Stay undetected.</p>
+<p>Stealth hack the router. Stay undetected.</p>
 <button onclick="startGame()">Start Hack</button>
 </div>
 
 <div id="gameOverScreen" class="screen" style="display:none;">
-<h1>🚫 Trace Detected</h1>
+<h1 id="endTitle"></h1>
 <p id="finalScore"></p>
 <button onclick="startGame()">Retry</button>
 </div>
 
-<canvas id="gameCanvas" width="500" height="500"></canvas>
+<div id="cutsceneScreen" class="screen" style="display:none;">
+<h1>📡 Incoming Transmission...</h1>
+<p id="cutsceneText">...</p>
+<button onclick="startGame()">Play Again</button>
+</div>
+
+
+<canvas id="gameCanvas" width="600" height="500"></canvas>
 
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-let stage = 1;
-let score = 0;
-let gameRunning = false;
-
-// Player is a cursor
-let player = { x: 250, y: 250, size: 12, speed: 5 };
-
-let wires = [];
-let codeBlocks = [];
+let stage, score, alertLevel, gameRunning;
+let player = { x: 300, y: 250, size: 10, speed: 4 };
 let keys = {};
 
-// Controls
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
+let wires = [], codeBlocks = [], scanners = [], rain = [];
+let password = "", input = "";
+
+// Controls (WASD)
+document.addEventListener("keydown", e => {
+  keys[e.key.toLowerCase()] = true;
+  if (stage === 3 && gameRunning) {
+    if (e.key.length === 1) input += e.key;
+    if (e.key === "Backspace") input = input.slice(0, -1);
+    if (input === password) nextStage();
+  }
+});
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 document.addEventListener("click", handleClick);
 
 function startGame() {
-  stage = 1;
-  score = 0;
-  player.x = 250;
+  stage = 1; score = 0; alertLevel = 0;
+  player.x = 300; player.y = 250;
   document.getElementById("startScreen").style.display = "none";
   document.getElementById("gameOverScreen").style.display = "none";
+  document.getElementById("cutsceneScreen").style.display = "none";
   loadStage();
   gameRunning = true;
   gameLoop();
 }
 
 function loadStage() {
-  wires = [];
-  codeBlocks = [];
+  wires = []; codeBlocks = []; scanners = []; input = "";
+
+  rain = Array(100).fill(0).map(()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height}));
 
   if (stage === 1) {
-    // wires to cut
-    for (let i = 0; i < 5; i++) {
-      wires.push({ x: 50 + i * 80, y: 200, cut: false });
-    }
-  } else if (stage === 2) {
-    // code blocks to delete
-    for (let i = 0; i < 6; i++) {
-      codeBlocks.push({ x: Math.random() * 450, y: Math.random() * 450, size: 30 });
-    }
-  } else {
-    endGame(true);
+    for (let i=0;i<5;i++) wires.push({ x:80+i*90, cut:false });
+    createScanners(1);
+  }
+  else if (stage === 2) {
+    for (let i=0;i<6;i++) codeBlocks.push({ x:Math.random()*550, y:Math.random()*450, size:30 });
+    createScanners(2);
+  }
+  else if (stage === 3) {
+    password = "hack" + Math.floor(Math.random()*100);
+    createScanners(3);
+  }
+  else if (stage === 4) {
+    for (let i=0;i<4;i++) codeBlocks.push({ x:100+i*100, y:Math.random()*400, size:40 });
+    createScanners(3);
+  }
+  else {
+    playCutscene();
+  }
+}
+
+function createScanners(count) {
+  for (let i=0;i<count;i++) {
+    scanners.push({ x:Math.random()*canvas.width, y:0, speed:2+Math.random()*2 });
   }
 }
 
+function nextStage() {
+  stage++;
+  loadStage();
+}
+
 function update() {
-  if (keys["ArrowLeft"]) player.x -= player.speed;
-  if (keys["ArrowRight"]) player.x += player.speed;
-  if (keys["ArrowUp"]) player.y -= player.speed;
-  if (keys["ArrowDown"]) player.y += player.speed;
+  if (keys["a"]) player.x -= player.speed;
+  if (keys["d"]) player.x += player.speed;
+  if (keys["w"]) player.y -= player.speed;
+  if (keys["s"]) player.y += player.speed;
+
 
   player.x = Math.max(0, Math.min(canvas.width, player.x));
   player.y = Math.max(0, Math.min(canvas.height, player.y));
 
-  // Stage completion checks
-  if (stage === 1 && wires.every(w => w.cut)) {
-    stage++;
-    loadStage();
-  }
+  scanners.forEach(s => {
+    s.y += s.speed;
+    if (Math.abs(player.x - s.x) < 20 && Math.abs(player.y - s.y) < 20) {
+      alertLevel += 0.5;
+    }
+    if (s.y > canvas.height) { s.y = 0; s.x = Math.random()*canvas.width; }
+  });
 
-  if (stage === 2 && codeBlocks.length === 0) {
-    stage++;
-    loadStage();
-  }
+  if (alertLevel >= 100) endGame(false);
+
+  if (stage===1 && wires.every(w=>w.cut)) nextStage();
+  if (stage===2 && codeBlocks.length===0) nextStage();
+  if (stage===4 && codeBlocks.length===0) nextStage();
+
+  score += 0.1;
 }
 
 function handleClick() {
   if (!gameRunning) return;
 
-  if (stage === 1) {
-    wires.forEach(w => {
-      if (!w.cut && Math.abs(player.x - w.x) < 15) {
-        w.cut = true;
-        score += 10;
-      }
+  if (stage===1) {
+    wires.forEach(w=>{
+      if (!w.cut && Math.abs(player.x - w.x) < 20) { w.cut=true; score+=10; }
     });
   }
 
-  if (stage === 2) {
-    codeBlocks = codeBlocks.filter(c => {
-      let hit = player.x > c.x && player.x < c.x + c.size &&
-                player.y > c.y && player.y < c.y + c.size;
-      if (hit) score += 20;
+  if (stage===2 || stage===4) {
+    codeBlocks = codeBlocks.filter(c=>{
+      let hit = player.x>c.x && player.x<c.x+c.size && player.y>c.y && player.y<c.y+c.size;
+      if (hit) score+=20;
       return !hit;
     });
   }
 }
 
+function drawRain() {
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.fillStyle = "lime";
+  rain.forEach(r=>{
+    ctx.fillText(Math.random()>0.5?"0":"1", r.x, r.y);
+    r.y += 5;
+    if (r.y > canvas.height) r.y = 0;
+  });
+}
+
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawRain();
 
-  // Player
-  ctx.fillStyle = "lime";
+  ctx.shadowColor = "lime";
+  ctx.shadowBlur = 10;
   ctx.fillRect(player.x, player.y, player.size, player.size);
+  ctx.shadowBlur = 0;
 
-  // Stage visuals
-  if (stage === 1) {
-    ctx.fillStyle = "yellow";
-    ctx.fillText("Stage 1: Cut the wires (click near them)", 10, 20);
+  ctx.fillStyle = "rgba(255,0,0,0.5)";
+  scanners.forEach(s => ctx.fillRect(s.x, s.y, 20, 20));
 
-    wires.forEach(w => {
-      ctx.strokeStyle = w.cut ? "gray" : "red";
-      ctx.beginPath();
-      ctx.moveTo(w.x, 0);
-      ctx.lineTo(w.x, canvas.height);
-      ctx.stroke();
+  ctx.fillStyle="yellow";
+
+  if (stage===1) {
+    ctx.fillText("Cut wires",10,20);
+    wires.forEach(w=>{
+      ctx.strokeStyle = w.cut?"gray":"cyan";
+      ctx.beginPath(); ctx.moveTo(w.x,0); ctx.lineTo(w.x,canvas.height); ctx.stroke();
     });
   }
 
-  if (stage === 2) {
-    ctx.fillStyle = "yellow";
-    ctx.fillText("Stage 2: Delete firewall code (click blocks)", 10, 20);
-
-    ctx.fillStyle = "red";
-    codeBlocks.forEach(c => {
-      ctx.fillRect(c.x, c.y, c.size, c.size);
-    });
+  if (stage===2) {
+    ctx.fillText("Delete code blocks",10,20);
+    ctx.fillStyle="red";
+    codeBlocks.forEach(c=>ctx.fillRect(c.x,c.y,c.size,c.size));
   }
 
-  ctx.fillStyle = "lime";
-  ctx.fillText("Score: " + score, 10, 40);
+  if (stage===3) {
+    ctx.fillText("Password: type " + password,10,20);
+    ctx.fillText("Input: " + input,10,40);
+  }
+
+  if (stage===4) {
+    ctx.fillText("Route packets",10,20);
+    ctx.fillStyle="orange";
+    codeBlocks.forEach(c=>ctx.fillRect(c.x,c.y,c.size,c.size));
+  }
+
+  ctx.fillStyle="lime";
+  ctx.fillText("Score: " + Math.floor(score), 10, 460);
+  ctx.fillText("Alert: " + Math.floor(alertLevel), 10, 480);
 }
 
 function gameLoop() {
@@ -161,14 +211,47 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-function endGame(win=false) {
-  gameRunning = false;
-  document.getElementById("gameOverScreen").style.display = "block";
-  document.getElementById("finalScore").innerText = win ?
-    "Hack Complete! Score: " + score :
-    "Score: " + score;
+function endGame(win) {
+  gameRunning=false;
+  document.getElementById("gameOverScreen").style.display="block";
+  document.getElementById("endTitle").innerText = win?"✅ Hack Complete":"🚫 Trace Detected";
+  document.getElementById("finalScore").innerText = "Score: "+Math.floor(score);
+}
+
+
+// CUTSCENE FUNCTION
+function playCutscene() {
+  gameRunning = false;
+  document.getElementById("cutsceneScreen").style.display = "block";
+
+
+  const text = [
+    "Connection Secured...",
+    "Unknown authority detected...",
+    "Government Link Established.",
+    "Agent, your skills are exceptional.",
+    "We have a critical mission.",
+    "You must breach a foreign firewall system.",
+    "Time is limited. The stakes are global.",
+    "Prepare for your next operation..."
+  ];
+
+
+  let i = 0;
+  const display = document.getElementById("cutsceneText");
+
+
+  function showNext() {
+    if (i < text.length) {
+      display.innerText = text[i];
+      i++;
+      setTimeout(showNext, 1500);
+    }
+  }
+
+
+  showNext();
 }
 </script>
 
 </body>
-</html>
