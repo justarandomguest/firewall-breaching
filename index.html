@@ -30,7 +30,6 @@ button { padding:10px 20px; background:black; color:lime; border:2px solid lime;
 <button onclick="startGame()">Play Again</button>
 </div>
 
-
 <canvas id="gameCanvas" width="600" height="500"></canvas>
 
 <script>
@@ -47,12 +46,22 @@ let password = "", input = "";
 // Controls (WASD)
 document.addEventListener("keydown", e => {
   keys[e.key.toLowerCase()] = true;
+
+
+  // Password typing (short + instant progression)
   if (stage === 3 && gameRunning) {
     if (e.key.length === 1) input += e.key;
     if (e.key === "Backspace") input = input.slice(0, -1);
-    if (input === password) nextStage();
+
+
+    if (input === password) {
+      score += 50;
+      setTimeout(nextStage, 300); // quick transition
+    }
   }
 });
+
+
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 document.addEventListener("click", handleClick);
 
@@ -81,8 +90,8 @@ function loadStage() {
     createScanners(2);
   }
   else if (stage === 3) {
-    password = "hack" + Math.floor(Math.random()*100);
-    createScanners(3);
+    password = "h" + Math.floor(Math.random()*10); // SHORT password
+    createScanners(2);
   }
   else if (stage === 4) {
     for (let i=0;i<4;i++) codeBlocks.push({ x:100+i*100, y:Math.random()*400, size:40 });
@@ -110,19 +119,26 @@ function update() {
   if (keys["w"]) player.y -= player.speed;
   if (keys["s"]) player.y += player.speed;
 
-
   player.x = Math.max(0, Math.min(canvas.width, player.x));
   player.y = Math.max(0, Math.min(canvas.height, player.y));
 
+  // SCANNER COLLISION = INSTANT RESTART
   scanners.forEach(s => {
     s.y += s.speed;
-    if (Math.abs(player.x - s.x) < 20 && Math.abs(player.y - s.y) < 20) {
-      alertLevel += 0.5;
+
+
+    if (
+      player.x < s.x + 20 &&
+      player.x + player.size > s.x &&
+      player.y < s.y + 20 &&
+      player.y + player.size > s.y
+    ) {
+      endGame(false); // immediate fail
     }
+
+
     if (s.y > canvas.height) { s.y = 0; s.x = Math.random()*canvas.width; }
   });
-
-  if (alertLevel >= 100) endGame(false);
 
   if (stage===1 && wires.every(w=>w.cut)) nextStage();
   if (stage===2 && codeBlocks.length===0) nextStage();
@@ -201,7 +217,6 @@ function draw() {
 
   ctx.fillStyle="lime";
   ctx.fillText("Score: " + Math.floor(score), 10, 460);
-  ctx.fillText("Alert: " + Math.floor(alertLevel), 10, 480);
 }
 
 function gameLoop() {
@@ -218,12 +233,9 @@ function endGame(win) {
   document.getElementById("finalScore").innerText = "Score: "+Math.floor(score);
 }
 
-
-// CUTSCENE FUNCTION
 function playCutscene() {
   gameRunning = false;
   document.getElementById("cutsceneScreen").style.display = "block";
-
 
   const text = [
     "Connection Secured...",
@@ -236,10 +248,8 @@ function playCutscene() {
     "Prepare for your next operation..."
   ];
 
-
   let i = 0;
   const display = document.getElementById("cutsceneText");
-
 
   function showNext() {
     if (i < text.length) {
@@ -248,7 +258,6 @@ function playCutscene() {
       setTimeout(showNext, 1500);
     }
   }
-
 
   showNext();
 }
